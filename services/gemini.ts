@@ -5,9 +5,7 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
 // Using gemini-2.5-pro for complex coding tasks.
-const GEMINI_MODEL = 'gemini-3-pro-preview';
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const GEMINI_MODEL = 'gemini-2.0-flash'; // 2.0 Flash is faster and free-tier friendly, but users can change logic if they want Pro
 
 const SYSTEM_INSTRUCTION = `You are an expert AI Engineer and Product Designer specializing in "bringing artifacts to life".
 Your goal is to take a user uploaded file—which might be a polished UI design, a messy napkin sketch, a photo of a whiteboard with jumbled notes, or a picture of a real-world object (like a messy desk)—and instantly generate a fully functional, interactive, single-page HTML/JS/CSS application.
@@ -51,7 +49,32 @@ DIRECTIVES:
 RESPONSE FORMAT:
 Return ONLY the raw HTML code. Start immediately with <!DOCTYPE html>.`;
 
+// Helper to get the client with the user's key
+const getGenAIClient = () => {
+  const apiKey = localStorage.getItem('user_gemini_api_key');
+  if (!apiKey) {
+    throw new Error("API_KEY_MISSING");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
+export async function validateApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    // Minimal generation to test access
+    await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: { parts: [{ text: "test" }] },
+    });
+    return true;
+  } catch (error) {
+    console.error("API Validation Failed:", error);
+    return false;
+  }
+}
+
 export async function bringToLife(prompt: string, fileBase64?: string, mimeType?: string): Promise<string> {
+  const ai = getGenAIClient();
   const parts: any[] = [];
   
   // Strong directive for file-only inputs with emphasis on NO external images
@@ -95,6 +118,7 @@ export async function bringToLife(prompt: string, fileBase64?: string, mimeType?
 }
 
 export async function updateCode(currentHtml: string, userPrompt: string): Promise<string> {
+  const ai = getGenAIClient();
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: GEMINI_MODEL,

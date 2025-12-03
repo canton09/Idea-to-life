@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useEffect, useState, useRef } from 'react';
-import { ArrowDownTrayIcon, PlusIcon, ViewColumnsIcon, DocumentIcon, CodeBracketIcon, XMarkIcon, PaperAirplaneIcon, SparklesIcon, LockClosedIcon, KeyIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, PlusIcon, ViewColumnsIcon, DocumentIcon, CodeBracketIcon, XMarkIcon, PaperAirplaneIcon, SparklesIcon, LockClosedIcon, KeyIcon, ArrowRightOnRectangleIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { Creation } from './CreationHistory';
 
 interface LivePreviewProps {
@@ -12,6 +12,7 @@ interface LivePreviewProps {
   isFocused: boolean;
   onReset: () => void;
   onUpdate: (prompt: string) => void;
+  onOpenSettings: () => void;
 }
 
 // Add type definition for the global pdfjsLib
@@ -110,7 +111,7 @@ const PdfRenderer = ({ dataUrl }: { dataUrl: string }) => {
   );
 };
 
-export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, isFocused, onReset, onUpdate }) => {
+export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, isFocused, onReset, onUpdate, onOpenSettings }) => {
     const [loadingStep, setLoadingStep] = useState(0);
     const [showSplitView, setShowSplitView] = useState(false);
     const [updatePrompt, setUpdatePrompt] = useState("");
@@ -200,7 +201,7 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, i
       <div className="bg-[#121214] px-4 py-3 flex items-center justify-between border-b border-zinc-800 shrink-0">
         {/* Left: Controls */}
         <div className="flex items-center space-x-3 w-32">
-           <div className="flex space-x-2 group/controls">
+           <div className="flex space-x-2 group/controls mr-2">
                 <button 
                   onClick={onReset}
                   className="w-3 h-3 rounded-full bg-zinc-700 group-hover/controls:bg-red-500 hover:!bg-red-600 transition-colors flex items-center justify-center focus:outline-none"
@@ -211,6 +212,15 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, i
                 <div className="w-3 h-3 rounded-full bg-zinc-700 group-hover/controls:bg-yellow-500 transition-colors"></div>
                 <div className="w-3 h-3 rounded-full bg-zinc-700 group-hover/controls:bg-green-500 transition-colors"></div>
            </div>
+           
+           {/* Settings Access in Preview */}
+           <button 
+             onClick={onOpenSettings} 
+             className="text-zinc-600 hover:text-blue-400 transition-colors p-1 rounded-full hover:bg-zinc-800"
+             title="API Key 设置"
+           >
+             <Cog6ToothIcon className="w-4 h-4" />
+           </button>
         </div>
         
         {/* Center: Title */}

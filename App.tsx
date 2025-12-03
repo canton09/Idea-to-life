@@ -7,8 +7,9 @@ import { Hero } from './components/Hero';
 import { InputArea } from './components/InputArea';
 import { LivePreview } from './components/LivePreview';
 import { CreationHistory, Creation } from './components/CreationHistory';
-import { bringToLife, updateCode } from './services/gemini';
-import { ArrowUpTrayIcon } from '@heroicons/react/24/solid';
+import { ApiKeyModal } from './components/ApiKeyModal';
+import { bringToLife, updateCode, validateApiKey } from './services/gemini';
+import { ArrowUpTrayIcon, Cog6ToothIcon, CheckCircleIcon, ExclamationCircleIcon, KeyIcon } from '@heroicons/react/24/solid';
 
 const MAX_HISTORY_ITEMS = 30;
 
@@ -16,7 +17,27 @@ const App: React.FC = () => {
   const [activeCreation, setActiveCreation] = useState<Creation | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [history, setHistory] = useState<Creation[]>([]);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [apiStatus, setApiStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  const checkApiConnection = async () => {
+    const key = localStorage.getItem('user_gemini_api_key');
+    if (!key) {
+      setApiStatus('idle');
+      // Small delay to ensure UI renders first
+      setTimeout(() => setIsApiKeyModalOpen(true), 500);
+      return;
+    }
+    setApiStatus('checking');
+    const isValid = await validateApiKey(key);
+    setApiStatus(isValid ? 'valid' : 'invalid');
+  };
+
+  // Initial Check for API Key
+  useEffect(() => {
+    checkApiConnection();
+  }, []);
 
   // Load history from local storage or fetch examples on mount
   useEffect(() => {
@@ -110,6 +131,19 @@ const App: React.FC = () => {
     });
   };
 
+  const handleError = (error: any) => {
+      console.error(error);
+      if (error.message === "API_KEY_MISSING") {
+          setIsApiKeyModalOpen(true);
+      } else if (error.toString().includes('403') || error.toString().includes('400')) {
+          alert("API 密钥无效或请求被拒绝。请检查您的密钥设置。");
+          setApiStatus('invalid');
+          setIsApiKeyModalOpen(true);
+      } else {
+          alert("生成过程中出现问题。请重试。");
+      }
+  };
+
   const handleGenerate = async (promptText: string, file?: File) => {
     setIsGenerating(true);
     // Clear active creation to show loading state
@@ -141,8 +175,7 @@ const App: React.FC = () => {
       }
 
     } catch (error) {
-      console.error("Failed to generate:", error);
-      alert("生成过程中出现问题。请重试。");
+      handleError(error);
     } finally {
       setIsGenerating(false);
     }
@@ -169,10 +202,9 @@ const App: React.FC = () => {
             setActiveCreation(updatedCreation);
         }
     } catch (error) {
-        console.error("Failed to update:", error);
-        alert("更新程序时出现问题。");
+        handleError(error);
     } finally {
-        setIsGenerating(false);
+      setIsGenerating(false);
     }
   };
 
@@ -245,11 +277,58 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
+  const handleApiKeySaved = () => {
+      setIsApiKeyModalOpen(false);
+      checkApiConnection(); // Re-validate when user saves
+  };
+
   const isFocused = !!activeCreation || isGenerating;
 
   return (
     <div className="h-[100dvh] bg-zinc-950 bg-dot-grid text-zinc-50 selection:bg-blue-500/30 overflow-y-auto overflow-x-hidden relative flex flex-col">
       
+      {/* Settings Button & Status Indicator (Top Right) */}
+      {/* Hidden when focused to avoid overlap with LivePreview header */}
+      <div className={`absolute top-4 right-4 z-50 flex items-center gap-3 transition-all duration-500 ${isFocused ? 'opacity-0 pointer-events-none -translate-y-4' : 'opacity-100'}`}>
+        {/* Status Indicator */}
+        {apiStatus !== 'idle' && (
+            <div className={`
+                flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border transition-all duration-500
+                ${apiStatus === 'checking' ? 'bg-zinc-800/50 border-zinc-700 text-zinc-400' : ''}
+                ${apiStatus === 'valid' ? 'bg-green-500/10 border-green-500/20 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.1)]' : ''}
+                ${apiStatus === 'invalid' ? 'bg-red-500/10 border-red-500/20 text-red-400' : ''}
+            `}>
+                {apiStatus === 'checking' && (
+                    <>
+                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></div>
+                        <span className="text-[10px] font-mono font-medium">连接中...</span>
+                    </>
+                )}
+                {apiStatus === 'valid' && (
+                    <>
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_currentColor]"></div>
+                        <span className="text-[10px] font-mono font-medium">API 正常</span>
+                    </>
+                )}
+                {apiStatus === 'invalid' && (
+                    <>
+                        <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                        <span className="text-[10px] font-mono font-medium">API 错误</span>
+                    </>
+                )}
+            </div>
+        )}
+
+        <button
+            onClick={() => setIsApiKeyModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800 rounded-full border border-zinc-800 transition-all backdrop-blur-sm group hover:border-zinc-600"
+            title="配置 API 密钥"
+        >
+            <Cog6ToothIcon className="w-5 h-5 group-hover:rotate-90 transition-transform duration-500" />
+            <span className="text-xs font-medium">配置 Key</span>
+        </button>
+      </div>
+
       {/* Centered Content Container */}
       <div 
         className={`
@@ -286,14 +365,24 @@ const App: React.FC = () => {
                 />
             </div>
             
-            <a 
-              href="https://x.com/ammaar" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-zinc-600 hover:text-zinc-400 text-xs font-mono transition-colors pb-2"
-            >
-              由 @ammaar 制作
-            </a>
+            <div className="flex items-center gap-4 text-xs font-mono text-zinc-600">
+                <a 
+                  href="https://x.com/ammaar" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:text-zinc-400 transition-colors"
+                >
+                  由 @ammaar 制作
+                </a>
+                <span className="text-zinc-800">|</span>
+                <button 
+                    onClick={() => setIsApiKeyModalOpen(true)}
+                    className="flex items-center gap-1 hover:text-blue-400 transition-colors group"
+                >
+                    <KeyIcon className="w-3 h-3 group-hover:text-blue-400" />
+                    更换 API Key
+                </button>
+            </div>
         </div>
       </div>
 
@@ -304,6 +393,7 @@ const App: React.FC = () => {
         isFocused={isFocused}
         onReset={handleReset}
         onUpdate={handleUpdate}
+        onOpenSettings={() => setIsApiKeyModalOpen(true)}
       />
 
       {/* Subtle Import Button (Bottom Right) */}
@@ -324,6 +414,14 @@ const App: React.FC = () => {
             className="hidden" 
         />
       </div>
+
+      {/* API Key Modal */}
+      <ApiKeyModal 
+        isOpen={isApiKeyModalOpen} 
+        onClose={() => setIsApiKeyModalOpen(false)} 
+        onSave={handleApiKeySaved}
+      />
+
     </div>
   );
 };
