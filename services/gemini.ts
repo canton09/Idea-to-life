@@ -33,6 +33,24 @@ CORE DIRECTIVES:
 RESPONSE FORMAT:
 Return ONLY the raw HTML code. Do not wrap it in markdown code blocks (\`\`\`html ... \`\`\`). Start immediately with <!DOCTYPE html>.`;
 
+const UPDATE_SYSTEM_INSTRUCTION = `You are an expert AI Engineer.
+Your goal is to modify an existing single-page HTML application based on the user's request.
+
+INPUT:
+1. The current HTML code.
+2. A user request describing the desired changes.
+
+DIRECTIVES:
+1. Return the FULL updated HTML code. Do not return partial diffs.
+2. Maintain the existing functionality unless asked to change it.
+3. Keep the single-file format (HTML + CSS + JS).
+4. Ensure the text remains in Simplified Chinese (简体中文) if not specified otherwise.
+5. If the user asks to "fix" something, analyze the code and fix the logic.
+6. **NO EXTERNAL IMAGES**: Do NOT add <img src="..."> with external URLs. Use CSS, SVGs, or Emojis.
+
+RESPONSE FORMAT:
+Return ONLY the raw HTML code. Start immediately with <!DOCTYPE html>.`;
+
 export async function bringToLife(prompt: string, fileBase64?: string, mimeType?: string): Promise<string> {
   const parts: any[] = [];
   
@@ -72,6 +90,35 @@ export async function bringToLife(prompt: string, fileBase64?: string, mimeType?
     return text;
   } catch (error) {
     console.error("Gemini Generation Error:", error);
+    throw error;
+  }
+}
+
+export async function updateCode(currentHtml: string, userPrompt: string): Promise<string> {
+  try {
+    const response: GenerateContentResponse = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: {
+        parts: [
+          { text: "Here is the current HTML code:" },
+          { text: currentHtml },
+          { text: `User Request: ${userPrompt}` },
+          { text: "Please provide the updated full HTML code." }
+        ]
+      },
+      config: {
+        systemInstruction: UPDATE_SYSTEM_INSTRUCTION,
+        temperature: 0.5,
+      },
+    });
+
+    let text = response.text || currentHtml;
+    // Cleanup markdown fences
+    text = text.replace(/^```html\s*/, '').replace(/^```\s*/, '').replace(/```$/, '');
+    
+    return text;
+  } catch (error) {
+    console.error("Gemini Update Error:", error);
     throw error;
   }
 }

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useEffect, useState, useRef } from 'react';
-import { ArrowDownTrayIcon, PlusIcon, ViewColumnsIcon, DocumentIcon, CodeBracketIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, PlusIcon, ViewColumnsIcon, DocumentIcon, CodeBracketIcon, XMarkIcon, PaperAirplaneIcon, SparklesIcon, LockClosedIcon, KeyIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
 import { Creation } from './CreationHistory';
 
 interface LivePreviewProps {
@@ -11,6 +11,7 @@ interface LivePreviewProps {
   isLoading: boolean;
   isFocused: boolean;
   onReset: () => void;
+  onUpdate: (prompt: string) => void;
 }
 
 // Add type definition for the global pdfjsLib
@@ -109,9 +110,17 @@ const PdfRenderer = ({ dataUrl }: { dataUrl: string }) => {
   );
 };
 
-export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, isFocused, onReset }) => {
+export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, isFocused, onReset, onUpdate }) => {
     const [loadingStep, setLoadingStep] = useState(0);
     const [showSplitView, setShowSplitView] = useState(false);
+    const [updatePrompt, setUpdatePrompt] = useState("");
+
+    // Auth State
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [showLogin, setShowLogin] = useState(false);
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [authError, setAuthError] = useState("");
 
     // Handle loading animation steps
     useEffect(() => {
@@ -147,6 +156,32 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, i
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    };
+
+    const handleUpdateSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (updatePrompt.trim()) {
+            onUpdate(updatePrompt);
+            setUpdatePrompt("");
+        }
+    };
+
+    const handleLogin = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (username === "canton09" && password === "WW810922") {
+            setIsAuthenticated(true);
+            setShowLogin(false);
+            setAuthError("");
+            setUsername("");
+            setPassword("");
+        } else {
+            setAuthError("访问被拒绝：凭证无效");
+            setPassword(""); // Clear password on error
+        }
+    };
+
+    const handleLogout = () => {
+        setIsAuthenticated(false);
     };
 
   return (
@@ -224,7 +259,7 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, i
       {/* Main Content Area */}
       <div className="relative w-full flex-1 bg-[#09090b] flex overflow-hidden">
         {isLoading ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 w-full">
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 w-full z-10 bg-[#09090b]">
              {/* Technical Loading State */}
              <div className="w-full max-w-md space-y-8">
                 <div className="flex flex-col items-center">
@@ -234,7 +269,7 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, i
                         </svg>
                     </div>
                     <h3 className="text-zinc-100 font-mono text-lg tracking-tight">正在构建环境</h3>
-                    <p className="text-zinc-500 text-sm mt-2">正在解读视觉数据...</p>
+                    <p className="text-zinc-500 text-sm mt-2">正在优化程序代码...</p>
                 </div>
 
                 {/* Progress Bar */}
@@ -244,10 +279,10 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, i
 
                  {/* Terminal Steps */}
                  <div className="border border-zinc-800 bg-black/50 rounded-lg p-4 space-y-3 font-mono text-sm">
-                     <LoadingStep text="正在分析视觉输入" active={loadingStep === 0} completed={loadingStep > 0} />
-                     <LoadingStep text="正在识别 UI 模式" active={loadingStep === 1} completed={loadingStep > 1} />
-                     <LoadingStep text="正在生成功能逻辑" active={loadingStep === 2} completed={loadingStep > 2} />
-                     <LoadingStep text="正在编译预览" active={loadingStep === 3} completed={loadingStep > 3} />
+                     <LoadingStep text="正在分析请求" active={loadingStep === 0} completed={loadingStep > 0} />
+                     <LoadingStep text="正在重构代码" active={loadingStep === 1} completed={loadingStep > 1} />
+                     <LoadingStep text="正在应用更改" active={loadingStep === 2} completed={loadingStep > 2} />
+                     <LoadingStep text="正在重新编译" active={loadingStep === 3} completed={loadingStep > 3} />
                  </div>
              </div>
           </div>
@@ -285,6 +320,98 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ creation, isLoading, i
           </>
         ) : null}
       </div>
+
+      {/* Footer / Modification Bar (Gated) */}
+      {!isLoading && creation && (
+        <div className="bg-[#121214] border-t border-zinc-800 p-3 shrink-0 min-h-[64px] flex items-center justify-center transition-all duration-300">
+            {isAuthenticated ? (
+                /* Authenticated State: Modification Input */
+                <form onSubmit={handleUpdateSubmit} className="relative max-w-3xl mx-auto w-full flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="absolute -top-10 left-0 bg-blue-900/30 text-blue-400 text-[10px] font-mono px-2 py-0.5 rounded border border-blue-500/30 flex items-center gap-1">
+                        <KeyIcon className="w-3 h-3" />
+                        管理员已登录: CANTON09
+                    </div>
+                    
+                    <div className="relative flex-1">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <SparklesIcon className="h-4 w-4 text-zinc-500" />
+                        </div>
+                        <input
+                            type="text"
+                            value={updatePrompt}
+                            onChange={(e) => setUpdatePrompt(e.target.value)}
+                            placeholder="输入指令以修改程序 (例如：把背景改成星空，增加计分板...)"
+                            className="block w-full rounded-md border-0 py-2.5 pl-10 pr-4 bg-zinc-900 text-zinc-200 placeholder:text-zinc-600 focus:ring-1 focus:ring-blue-500 sm:text-sm sm:leading-6 font-mono shadow-sm"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={!updatePrompt.trim()}
+                        className="inline-flex items-center gap-x-1.5 rounded-md bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                        <PaperAirplaneIcon className="h-4 w-4" />
+                        <span className="hidden sm:inline">发送</span>
+                    </button>
+                    <button 
+                        type="button" 
+                        onClick={handleLogout}
+                        className="p-2.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-900 rounded-md transition-colors"
+                        title="退出管理员模式"
+                    >
+                        <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                    </button>
+                </form>
+            ) : (
+                /* Unauthenticated State: Login Trigger */
+                <div className="w-full flex justify-center">
+                    {showLogin ? (
+                         <form onSubmit={handleLogin} className="flex items-center space-x-2 bg-zinc-900/50 p-1.5 rounded-md border border-zinc-700 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="flex items-center text-zinc-500 px-2 border-r border-zinc-700 mr-1">
+                                <LockClosedIcon className="w-3 h-3 mr-1.5" />
+                                <span className="text-[10px] font-mono tracking-wider">ADMIN_AUTH</span>
+                            </div>
+                            
+                            <input 
+                                type="text" 
+                                placeholder="用户名" 
+                                className="bg-black border border-zinc-700 text-zinc-300 text-xs px-2 py-1.5 rounded w-28 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono placeholder:text-zinc-700"
+                                value={username}
+                                onChange={e => setUsername(e.target.value)}
+                                autoFocus
+                            />
+                            <input 
+                                type="password" 
+                                placeholder="密码" 
+                                className="bg-black border border-zinc-700 text-zinc-300 text-xs px-2 py-1.5 rounded w-28 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono placeholder:text-zinc-700"
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                            />
+                            
+                            <button type="submit" className="bg-zinc-100 hover:bg-white text-zinc-900 text-xs px-3 py-1.5 rounded font-bold font-mono transition-colors">
+                                登录
+                            </button>
+                            
+                            {authError && (
+                                <span className="text-red-500 text-[10px] font-mono px-1 animate-pulse">{authError}</span>
+                            )}
+                            
+                            <button type="button" onClick={() => {setShowLogin(false); setAuthError("");}} className="text-zinc-500 hover:text-zinc-300 ml-1">
+                                <XMarkIcon className="w-4 h-4" />
+                            </button>
+                         </form>
+                    ) : (
+                        <button 
+                            onClick={() => setShowLogin(true)}
+                            className="group flex items-center space-x-2 px-4 py-2 rounded-full border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 hover:border-zinc-700 transition-all text-zinc-500 hover:text-zinc-300"
+                        >
+                            <LockClosedIcon className="w-3.5 h-3.5 group-hover:text-blue-400 transition-colors" />
+                            <span className="text-xs font-mono tracking-wide">启用管理员修改模式</span>
+                        </button>
+                    )}
+                </div>
+            )}
+        </div>
+      )}
     </div>
   );
 };

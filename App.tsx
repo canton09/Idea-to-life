@@ -7,8 +7,10 @@ import { Hero } from './components/Hero';
 import { InputArea } from './components/InputArea';
 import { LivePreview } from './components/LivePreview';
 import { CreationHistory, Creation } from './components/CreationHistory';
-import { bringToLife } from './services/gemini';
+import { bringToLife, updateCode } from './services/gemini';
 import { ArrowUpTrayIcon } from '@heroicons/react/24/solid';
+
+const MAX_HISTORY_ITEMS = 30;
 
 const App: React.FC = () => {
   const [activeCreation, setActiveCreation] = useState<Creation | null>(null);
@@ -83,6 +85,10 @@ const App: React.FC = () => {
         } catch (e) {
             console.warn("Local storage full or error saving history", e);
         }
+    } else {
+        // If history is explicitly empty (and we've initialized), clear storage
+        // Note: This runs on initial render too if history is empty, but initHistory handles that race slightly.
+        // Better logic is handled in delete.
     }
   }, [history]);
 
@@ -130,7 +136,8 @@ const App: React.FC = () => {
           timestamp: new Date(),
         };
         setActiveCreation(newCreation);
-        setHistory(prev => [newCreation, ...prev]);
+        // Add to history and enforce limit
+        setHistory(prev => [newCreation, ...prev].slice(0, MAX_HISTORY_ITEMS));
       }
 
     } catch (error) {
@@ -141,6 +148,34 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdate = async (prompt: string) => {
+    if (!activeCreation) return;
+    setIsGenerating(true);
+
+    try {
+        const newHtml = await updateCode(activeCreation.html, prompt);
+        
+        if (newHtml) {
+            const updatedCreation: Creation = {
+                ...activeCreation,
+                id: crypto.randomUUID(), // New ID for history tracking
+                name: `${activeCreation.name} (v2)`, // Indicate versioning
+                html: newHtml,
+                timestamp: new Date()
+            };
+            
+            // Add to history, set as active, and enforce limit
+            setHistory(prev => [updatedCreation, ...prev].slice(0, MAX_HISTORY_ITEMS));
+            setActiveCreation(updatedCreation);
+        }
+    } catch (error) {
+        console.error("Failed to update:", error);
+        alert("更新程序时出现问题。");
+    } finally {
+        setIsGenerating(false);
+    }
+  };
+
   const handleReset = () => {
     setActiveCreation(null);
     setIsGenerating(false);
@@ -148,6 +183,22 @@ const App: React.FC = () => {
 
   const handleSelectCreation = (creation: Creation) => {
     setActiveCreation(creation);
+  };
+
+  const handleDeleteCreation = (id: string) => {
+    // If we are deleting the currently active creation, close the preview
+    if (activeCreation?.id === id) {
+        setActiveCreation(null);
+    }
+
+    setHistory(prev => {
+        const newHistory = prev.filter(item => item.id !== id);
+        // If history is completely cleared, clear local storage
+        if (newHistory.length === 0) {
+             localStorage.removeItem('gemini_app_history');
+        }
+        return newHistory;
+    });
   };
 
   const handleImportClick = () => {
@@ -172,10 +223,11 @@ const App: React.FC = () => {
                     id: parsed.id || crypto.randomUUID()
                 };
                 
-                // Add to history if not already there (by ID check)
+                // Add to history if not already there (by ID check), ensure limit
                 setHistory(prev => {
                     const exists = prev.some(c => c.id === importedCreation.id);
-                    return exists ? prev : [importedCreation, ...prev];
+                    if (exists) return prev;
+                    return [importedCreation, ...prev].slice(0, MAX_HISTORY_ITEMS);
                 });
 
                 // Set as active immediately
@@ -227,7 +279,11 @@ const App: React.FC = () => {
         {/* 3. History Section & Footer - Stays at bottom */}
         <div className="flex-shrink-0 pb-6 w-full mt-auto flex flex-col items-center gap-6">
             <div className="w-full px-2 md:px-0">
-                <CreationHistory history={history} onSelect={handleSelectCreation} />
+                <CreationHistory 
+                    history={history} 
+                    onSelect={handleSelectCreation} 
+                    onDelete={handleDeleteCreation} 
+                />
             </div>
             
             <a 
@@ -247,6 +303,7 @@ const App: React.FC = () => {
         isLoading={isGenerating}
         isFocused={isFocused}
         onReset={handleReset}
+        onUpdate={handleUpdate}
       />
 
       {/* Subtle Import Button (Bottom Right) */}
